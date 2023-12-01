@@ -1,0 +1,4 @@
+{
+  "*.rb":  { "alternate": "{}_spec.rb" },
+  "*_spec.rb": { "alternate": "{}.rb" }
+}
