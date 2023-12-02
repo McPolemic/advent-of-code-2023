@@ -1,5 +1,5 @@
 require 'rspec'
-require './day1'
+require_relative './day1'
 
 RSpec.describe 'Day1' do
   describe '#find_digits' do
@@ -15,7 +15,7 @@ RSpec.describe 'Day1' do
       expect(result).to eq 14
     end
   end
-  
+
   describe '#find_digits_and_words' do
     it 'can find digits!' do
       result = find_digits_and_words('a1anda2anda3anda4')

@@ -34,8 +34,8 @@ def find_digits_and_words(line)
 end
 
 if __FILE__ == $0
-  input = File.read('day1.txt')
-    .lines(chomp: true)
+  file_path = File.join(File.dirname(__FILE__), 'day1.txt')
+  input = File.readlines(file_path, chomp: true)
 
   star_1 = input.map{ |line| calibration_value(find_digits(line)) }.sum
   star_2 = input.map{ |line| calibration_value(find_digits_and_words(line)) }.sum
