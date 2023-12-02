@@ -10,18 +10,39 @@ Failure = Struct.new(:id, :errors) do
 end
 
 class GameParser
-  attr_reader :max_red, :max_green, :max_blue
+  attr_accessor :red, :green, :blue
 
-  def initialize(max_red:, max_green:, max_blue:)
-    @max_red = max_red
-    @max_green = max_green
-    @max_blue = max_blue
+  def initialize(red:, green:, blue:)
+    @red = red
+    @green = green
+    @blue = blue
+  end
+
+  def self.new_from_hint(hint)
+    _, hints = parse_hint_string(hint)
+
+    merged = {red: 0, green: 0, blue: 0}
+
+    # Find the max number for each color
+    hints.reduce(merged) do |acc, set|
+      set.each do |color, num|
+        acc[color] = num if acc[color] < num
+      end
+
+      acc
+    end
+
+    GameParser.new(**merged)
+  end
+
+  def product
+    red * green * blue
   end
 
   # Divides up a hint string into something #valid? can read
   # Example hint:
   # 'Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green'
-  def parse_hint_string(hint)
+  def self.parse_hint_string(hint)
     id, text_hints = hint.match(/Game (\d+): (.+)/).captures
 
     hints = text_hints.split("; ").map do |text_hint|
@@ -35,21 +56,20 @@ class GameParser
   end
 
   def hint_string_valid?(hint)
-    id, hints = parse_hint_string(hint)
-
-    valid?(*parse_hint_string(hint))
+    results = self.class.parse_hint_string(hint)
+    valid?(*results)
   end
 
   def valid?(id, hints)
-    max_values = {red: max_red, green: max_green, blue: max_blue}
+    values = {red: red, green: green, blue: blue}
     errors = []
 
     # for each hint, we compare our max values with the hint value
     # if any exceed the max value for that color, we mark it invalid
     hints.all? do |hint|
-      max_values.each do |color, max_value|
-        if hint.key?(color) && hint[color] > max_value
-          errors << "#{hint[color]} #{color} is greater than #{max_value}"
+      values.each do |color, value|
+        if hint.key?(color) && hint[color] > value
+          errors << "#{hint[color]} #{color} is greater than #{value}"
         end
       end
     end
@@ -66,14 +86,16 @@ if __FILE__ == $0
   file_path = File.join(File.dirname(__FILE__), 'day2.txt')
   input = File.readlines(file_path, chomp: true)
 
-  game = GameParser.new(max_red: 12, max_green: 13, max_blue: 14) 
+  game = GameParser.new(red: 12, green: 13, blue: 14)
 
   star_1 = input
     .map{ |hint| game.hint_string_valid?(hint) }
     .select(&:success?)
     .map(&:id)
     .sum
-  star_2 = nil
+  star_2 = input
+    .map{ |hint| GameParser.new_from_hint(hint).product }
+    .sum
 
   puts "Star 1: #{star_1}"
   puts "Star 2: #{star_2}"
