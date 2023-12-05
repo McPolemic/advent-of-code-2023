@@ -24,26 +24,39 @@ class Grid
   def at(x, y)
     # Out of bounds checks
     return nil if x < 0 || y < 0
-    return nil if y > data.length
-    return nil if x > data.first.length
+    return nil if y > data.length - 1
+    return nil if x > data.first.length - 1
 
     data[y][x]
   end
 
-  def numbers_at(coords)
-    coords.map do |(x, y)|
-      at(x, y).to_i
+  def surrounding_coords(start, finish, &block)
+    start_x, start_y = start
+    finish_x, finish_y = finish
+    coords = (start_y-1..finish_y+1).flat_map do |y|
+               (start_x-1..finish_x+1).map do |x|
+                 # Skip if it's within the coordinate rectangle
+                 next if x >= start_x &&
+                         y >= start_y &&
+                         x <= finish_x &&
+                         y <= finish_y
+
+                 [x, y]
+               end
+             end.compact
+    if block_given?
+      coords.each{ |coord| yield coord }
+    else
+      coords
     end
   end
 
-  def surrounding_coords(start, finish, &block)
-    x, y = start
-    (-1..1).flat_map do |y_offset|
-      (-1..1).map do |x_offset|
-        next if x_offset == 0 && y_offset == 0
-        [x + x_offset, y + y_offset]
-      end
-    end.compact
+  def surrounding_values(start, finish)
+    surrounding_coords(start, finish).map do |coord|
+      at(*coord)
+    end
+  rescue
+    require 'pry'; binding.pry
   end
 
   def each_row(&block)
@@ -83,16 +96,22 @@ def find_numbers(grid)
   end.flatten
 end
 
-def parse_input(grid)
-  symbols = find_symbols(grid)
-  #numbers = find_numbers(symbols, grid)
+def find_valid_numbers(grid)
+  find_numbers(grid).select do |possible_number|
+    start, finish = possible_number.coordinates
+
+    # Does it have punctuation around it?
+    grid.surrounding_values(start, finish).map do |value|
+      value =~ /[^.\d]/
+    end.any?
+  end.map(&:value)
 end
 
 if __FILE__ == $0
   file_path = File.join(File.dirname(__FILE__), 'day3.txt')
   input = File.readlines(file_path, chomp: true).map(&:chars)
 
-  star_1 = Grid.new(input)
+  star_1 = find_valid_numbers(Grid.new(input)).sum
   star_2 = nil
 
   puts "Star 1: #{star_1}"
