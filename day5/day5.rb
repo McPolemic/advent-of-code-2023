@@ -1,6 +1,3 @@
-require 'pry'
-require 'pry-nav'
-
 class Almanac
   attr_reader :seeds
 
@@ -11,12 +8,10 @@ class Almanac
 
   def add_seeds(seeds)
     @seeds = seeds
-    puts "Added seeds #{seeds.inspect}"
   end
 
   def add_map(from, to)
     @library[[from, to]] = Map.new
-    puts "Added map #{from}->#{to}"
   end
 
   def [](from, to)
@@ -85,20 +80,30 @@ def parse_input(input)
   almanac
 end
 
-def star_1(almanac)
-  pipeline_maps = [
-    %w(seed soil),
-    %w(soil fertilizer),
-    %w(fertilizer water),
-    %w(water light),
-    %w(light temperature),
-    %w(temperature humidity),
-    %w(humidity location)
-  ]
+PIPELINE_MAPS = [
+  %w(seed soil),
+  %w(soil fertilizer),
+  %w(fertilizer water),
+  %w(water light),
+  %w(light temperature),
+  %w(temperature humidity),
+  %w(humidity location)
+]
 
+def star_1(almanac)
   # Translate all seeds to locations and return the lowest location's seed
   almanac.seeds.map do |seed|
-    almanac.pipeline(pipeline_maps, seed)
+    almanac.pipeline(PIPELINE_MAPS, seed)
+  end.min
+end
+
+def star_2(almanac)
+  seeds = almanac.seeds.each_slice(2).flat_map do |(start, range)|
+    (start..start+range).to_a
+  end
+
+  seeds.map do |seed|
+    almanac.pipeline(PIPELINE_MAPS, seed)
   end.min
 end
 
@@ -107,7 +112,7 @@ if __FILE__ == $0
   input = parse_input(File.readlines(file_path, chomp: true))
 
   star_1 = star_1(input)
-  star_2 = nil
+  star_2 = star_2(input)
 
   puts "Star 1: #{star_1}"
   puts "Star 2: #{star_2}"
