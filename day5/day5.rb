@@ -38,6 +38,12 @@ class NoncontiguousRange
     @ranges = sort(ranges)
   end
 
+  # We always have sorted ranges, so we just pick the beginning of the
+  # first one
+  def min
+    ranges.first.begin
+  end
+
   def sort(ranges)
     return [] if ranges.nil?
 
@@ -55,7 +61,7 @@ class NoncontiguousRange
       # If they overlap or are adjacent, combine them
       if last_range &&
           last_range.end + 1 >= range.begin
-        new_range = Range.new(last_range.begin, range.end)
+        new_range = last_range.begin..range.end
         acc[-1] = new_range
       else
         acc << range
@@ -78,7 +84,8 @@ class NoncontiguousRange
     offset = to.begin - from.begin
 
     new_ranges = ranges.reduce([]) do |acc, current_range|
-      next current_range unless current_range.intersects? from
+      # If we don't intersect, don't bother cutting and adjusting
+      next acc + [current_range] unless current_range.intersects? from
 
       new_range = current_range.cut(from).map do |subrange|
         if subrange.intersects? from
@@ -96,7 +103,7 @@ class NoncontiguousRange
 end
 
 class Almanac
-  attr_reader :seeds
+  attr_reader :seeds, :library
 
   def initialize
     @library = {}
@@ -124,6 +131,12 @@ class Almanac
       self[from, to].translate_value(acc)
     end
   end
+
+  def pipeline_ncr(list_of_maps, ncr)
+    list_of_maps.reduce(ncr) do |acc, (from, to)|
+      self[from, to].translate_noncontiguous_range(acc)
+    end
+  end
 end
 
 class Map
@@ -132,6 +145,8 @@ class Map
   end
 
   def add_rule(source_start, dest_start, range)
+    # Don't want any off-by-one errors
+    range -= 1
     source_range = source_start..source_start+range
     dest_range = dest_start..dest_start+range
 
@@ -145,6 +160,12 @@ class Map
       rule.last.begin + offset
     else
       source
+    end
+  end
+
+  def translate_noncontiguous_range(ncr)
+    @rules.reduce(ncr) do |current_ncr, (from, to)|
+      current_ncr.translate_by(from, to)
     end
   end
 end
@@ -196,8 +217,12 @@ end
 
 def star_2(almanac)
   seeds = almanac.seeds.each_slice(2).flat_map do |(start, range)|
-    (start..start+range)
+    start..(start+range-1)
   end
+
+
+  seeds = NoncontiguousRange.new(seeds)
+  almanac.pipeline_ncr(PIPELINE_MAPS, seeds).min
 end
 
 if __FILE__ == $0
@@ -207,6 +232,6 @@ if __FILE__ == $0
   star_1 = star_1(input)
   star_2 = star_2(input)
 
-  puts "Star 1: #{star_1}"
-  puts "Star 2: #{star_2}"
+  puts "Star 1 - #{star_1}"
+  puts "Star 2 - Incorrect because I'm applying multiple rules from one map at a time :/ - #{star_2}"
 end
