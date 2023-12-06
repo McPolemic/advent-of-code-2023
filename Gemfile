@@ -2,8 +2,7 @@
 
 source "https://rubygems.org"
 
-# gem "rails"
+gem "pry-rescue", "~> 1.5"
+gem "pry-nav", "~> 1.0"
 
 gem "rspec", "~> 3.12"
-
-gem "pry-rescue", "~> 1.5"
