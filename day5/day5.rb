@@ -1,3 +1,100 @@
+class Range
+  # Honestly, this should already exist :/
+  def intersects?(other)
+    cover?(other) ||
+      self.begin.between?(other.begin, other.end) ||
+      self.end.between?(other.begin, other.end)
+  end
+
+  # Cuts a range into up to three ranges:
+  # * before the other range
+  # * in-between the other range
+  # * after the other range
+  def cut(other)
+    return [self] unless intersects? other
+    return [self] if other.cover?(self)
+
+    if self.cover?(other)
+      [self.begin..other.begin-1, other.begin..other.end, other.end+1..self.end]
+    elsif self.begin.between?(other.begin, other.end)
+      [self.begin..other.end, other.end+1..self.end]
+    elsif self.end.between?(other.begin, other.end)
+      [self.begin..other.begin-1, other.begin..self.end]
+    end
+  end
+
+  # Offsets a range by offset amount
+  def +(offset)
+    self.class.new(self.begin + offset, self.end + offset)
+  end
+end
+
+# Represents a list of ranges that can be transformed by
+# another list of ranges
+class NoncontiguousRange
+  attr_accessor :ranges
+
+  def initialize(ranges)
+    @ranges = sort(ranges)
+  end
+
+  def sort(ranges)
+    return [] if ranges.nil?
+
+    ranges.sort { |a, b| a.begin <=> b.begin }
+  end
+
+  def ==(other)
+    ranges == other.ranges
+  end
+
+  def consolidate
+    new_ranges = ranges.reduce([]) do |acc, range|
+      last_range = acc.last
+
+      # If they overlap or are adjacent, combine them
+      if last_range &&
+          last_range.end + 1 >= range.begin
+        new_range = Range.new(last_range.begin, range.end)
+        acc[-1] = new_range
+      else
+        acc << range
+      end
+
+      acc
+    end
+
+    self.class.new(new_ranges)
+  end
+
+  def intersects?(target_range)
+    ranges.select do |range|
+      range.intersects? target_range
+    end.any?
+  end
+
+  def translate_by(from, to)
+    return self unless intersects? from
+    offset = to.begin - from.begin
+
+    new_ranges = ranges.reduce([]) do |acc, current_range|
+      next current_range unless current_range.intersects? from
+
+      new_range = current_range.cut(from).map do |subrange|
+        if subrange.intersects? from
+          subrange + offset
+        else
+          subrange
+        end
+      end
+
+      acc += new_range
+    end
+
+    self.class.new(new_ranges).consolidate
+  end
+end
+
 class Almanac
   attr_reader :seeds
 
@@ -22,9 +119,9 @@ class Almanac
   # `from` and a final `to` and have it search through maps
   # to find a path between the two. I'm just going to
   # manually send in the list, though.
-  def pipeline(list_of_maps, source)
-    list_of_maps.reduce(source) do |acc, (from, to)|
-      self[from, to].translate(acc)
+  def pipeline_value(list_of_maps, value)
+    list_of_maps.reduce(value) do |acc, (from, to)|
+      self[from, to].translate_value(acc)
     end
   end
 end
@@ -41,7 +138,7 @@ class Map
     @rules << [source_range, dest_range]
   end
 
-  def translate(source)
+  def translate_value(source)
     rule = @rules.find { |rule| rule.first.include? source }
     if rule
       offset = source - rule.first.begin
@@ -93,18 +190,14 @@ PIPELINE_MAPS = [
 def star_1(almanac)
   # Translate all seeds to locations and return the lowest location's seed
   almanac.seeds.map do |seed|
-    almanac.pipeline(PIPELINE_MAPS, seed)
+    almanac.pipeline_value(PIPELINE_MAPS, seed)
   end.min
 end
 
 def star_2(almanac)
   seeds = almanac.seeds.each_slice(2).flat_map do |(start, range)|
-    (start..start+range).to_a
+    (start..start+range)
   end
-
-  seeds.map do |seed|
-    almanac.pipeline(PIPELINE_MAPS, seed)
-  end.min
 end
 
 if __FILE__ == $0
